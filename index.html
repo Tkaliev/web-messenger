@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Web Messenger v2</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
+        body { background: #0f172a; color: #f8fafc; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        
+        #auth-screen { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; gap: 15px; }
+        #auth-screen input { width: 100%; max-width: 300px; padding: 14px; border-radius: 10px; border: 1px: solid #475569; background: #1e293b; color: white; font-size: 16px; outline: none; }
+        #auth-screen button { width: 100%; max-width: 300px; padding: 14px; border-radius: 10px; border: none; background: #2563eb; color: white; font-weight: bold; font-size: 16px; cursor: pointer; }
+
+        #chat-screen { display: none; flex-direction: column; height: 100vh; }
+        header { background: #1e293b; padding: 15px; text-align: center; font-weight: bold; font-size: 17px; border-bottom: 1px solid #334155; }
+        
+        #chat { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 10px; background: #0b0f19; }
+        .msg { background: #1e293b; padding: 10px 14px; border-radius: 12px; max-width: 80%; word-break: break-word; border: 1px solid #334155; }
+        .msg.me { background: #2563eb; align-self: flex-end; border-color: #3b82f6; }
+        .author { font-size: 11px; color: #94a3b8; margin-bottom: 3px; font-weight: bold; }
+        .msg.me .author { color: #bfdbfe; }
+        
+        .input-box { display: flex; padding: 12px; background: #1e293b; border-top: 1px solid #334155; gap: 8px; }
+        input { flex: 1; background: #0f172a; border: 1px solid #475569; color: white; padding: 12px; border-radius: 10px; outline: none; font-size: 15px; }
+        button.send-btn { background: #2563eb; color: white; border: none; padding: 0 20px; border-radius: 10px; font-weight: bold; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+    <!-- ЭКРАН ВХОДА -->
+    <div id="auth-screen">
+        <h2>💬 Вход в чат</h2>
+        <input type="text" id="usernameInput" placeholder="Введите ваш никнейм..." autofocus>
+        <button onclick="login()">Войти в мессенджер</button>
+    </div>
+
+    <!-- ЭКРАН ЧАТА -->
+    <div id="chat-screen">
+        <header>💬 Free Messenger</header>
+        <div id="chat"></div>
+        <div class="input-box">
+            <input type="text" id="messageInput" placeholder="Сообщение..." autocomplete="off">
+            <button class="send-btn" onclick="sendMessage()">➤</button>
+        </div>
+    </div>
+
+<script>
+    let ws;
+    let username = '';
+    const chat = document.getElementById('chat');
+    const input = document.getElementById('messageInput');
+
+    function login() {
+        const val = document.getElementById('usernameInput').value.trim();
+        if (!val) {
+            alert('Введите ник!');
+            return;
+        }
+        username = val;
+        
+        // Полностью скрываем экран входа и показываем экран чата
+        document.getElementById('auth-screen').style.display = 'none';
+        document.getElementById('chat-screen').style.display = 'flex';
+
+        connectWS();
+    }
+
+    function connectWS() {
+        ws = new WebSocket('wss://194-76-138-9.sslip.io:9000/ws');
+
+        ws.onmessage = function(event) {
+            const res = JSON.parse(event.data);
+            if (res.type === 'history') {
+                chat.innerHTML = '';
+                res.data.forEach(m => appendMsg(m.username, m.text));
+            } else if (res.type === 'message') {
+                appendMsg(res.username, res.text);
+            }
+        };
+    }
+
+    function appendMsg(author, text) {
+        const div = document.createElement('div');
+        div.className = 'msg' + (author === username ? ' me' : '');
+        div.innerHTML = `<div class="author">${author}</div><div>${text}</div>`;
+        chat.appendChild(div);
+        chat.scrollTop = chat.scrollHeight;
+    }
+
+    function sendMessage() {
+        const text = input.value.trim();
+        if (text && ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ username: username, text: text }));
+            input.value = '';
+        }
+    }
+
+    input.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') sendMessage();
+    });
+</script>
+</body>
+</html>
